@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Toko</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --cream:#FBF7EE;--forest:#1F3D2B;--forest-dark:#122318;--turmeric:#E8A33D;--turmeric-dark:#B9741F;
+    --sage:#E7EEE2;--ink:#241F17;--paper:#FFFFFF;--line:#E6DDC7;--radius:12px;--danger:#C1502E;--muted:#877E67;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Plus Jakarta Sans',sans-serif;background:var(--cream);color:var(--ink);}
+  h1,h2,h3{font-family:'Fraunces',serif;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  button{font-family:inherit;cursor:pointer;}
+
+  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .login-card{background:var(--paper);padding:32px;border-radius:16px;max-width:340px;width:100%;border:1px solid var(--line);box-shadow:0 10px 30px rgba(31,61,43,0.1);}
+  .login-card h2{margin:0 0 6px;font-size:22px;color:var(--forest-dark);}
+  .login-card p{margin:0 0 20px;color:var(--muted);font-size:13.5px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:5px;color:var(--muted);}
+  .field input,.field textarea,.field select{
+    width:100%;padding:11px 13px;border-radius:9px;border:1.5px solid var(--line);font-family:inherit;font-size:14px;background:var(--paper);
+  }
+  .field input:focus,.field textarea:focus,.field select:focus{outline:2px solid var(--turmeric);border-color:transparent;}
+  .btn{background:var(--forest);color:var(--cream);border:none;padding:11px 18px;border-radius:9px;font-weight:700;font-size:14px;}
+  .btn.gold{background:var(--turmeric);color:var(--forest-dark);}
+  .btn.danger{background:var(--danger);color:#fff;}
+  .btn.ghost{background:none;border:1.5px solid var(--line);color:var(--ink);}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .errmsg{color:var(--danger);font-size:13px;margin-top:8px;}
+
+  #app{display:none;}
+  header{background:var(--forest);color:var(--cream);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;}
+  header h1{font-size:18px;margin:0;}
+  header .logout{background:none;border:1px solid rgba(251,247,238,0.3);color:var(--cream);padding:7px 14px;border-radius:8px;font-size:13px;}
+
+  .tabs{display:flex;gap:6px;max-width:1080px;margin:16px auto 0;padding:0 20px;overflow-x:auto;}
+  .tab{padding:9px 16px;border-radius:100px;border:1.5px solid var(--line);background:var(--paper);font-weight:700;font-size:13.5px;white-space:nowrap;}
+  .tab.active{background:var(--forest);border-color:var(--forest);color:var(--cream);}
+
+  .panel{max-width:1080px;margin:0 auto;padding:20px;}
+  .panel-section{display:none;}
+  .panel-section.active{display:block;}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+  .toolbar h2{margin:0;font-size:20px;color:var(--forest-dark);}
+
+  table{width:100%;border-collapse:collapse;background:var(--paper);border-radius:12px;overflow:hidden;border:1px solid var(--line);}
+  th,td{padding:11px 14px;text-align:left;font-size:13.5px;border-bottom:1px solid var(--line);}
+  th{background:var(--sage);font-weight:700;color:var(--forest-dark);font-size:12px;text-transform:uppercase;letter-spacing:0.03em;}
+  tr:last-child td{border-bottom:none;}
+  .rowimg{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--sage);}
+  .bannerimg{width:70px;height:40px;border-radius:6px;object-fit:cover;background:var(--sage);}
+  .status-pill{padding:4px 10px;border-radius:100px;font-size:11.5px;font-weight:700;text-transform:capitalize;}
+  .status-pending{background:#FBE9CE;color:var(--turmeric-dark);}
+  .status-paid{background:#DCEEDD;color:#1F6B2E;}
+  .status-shipped{background:#DDE8F5;color:#1E5AA8;}
+  .status-completed{background:var(--sage);color:var(--forest-dark);}
+  .status-cancelled{background:#F5DEDA;color:var(--danger);}
+  .actions{display:flex;gap:6px;}
+  .icon-btn{background:none;border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-size:12px;}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(18,35,24,0.45);z-index:60;display:none;align-items:center;justify-content:center;padding:16px;}
+  .modal-overlay.show{display:flex;}
+  .modal{background:var(--cream);border-radius:16px;max-width:460px;width:100%;max-height:88vh;overflow-y:auto;}
+  .modal-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+  .modal-head h3{margin:0;font-size:17px;}
+  .modal-body{padding:20px 22px;}
+  .modal-foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;}
+  select{cursor:pointer;}
+  .empty{text-align:center;color:var(--muted);padding:40px 0;}
+  .orderitems{font-size:12px;color:var(--muted);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:-8px;margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <h2>Admin Login</h2>
+    <p>Masuk untuk kelola produk, banner &amp; pesanan</p>
+    <div class="field"><label>Email</label><input type="email" id="loginEmail"></div>
+    <div class="field"><label>Password</label><input type="password" id="loginPassword"></div>
+    <button class="btn gold" style="width:100%" onclick="doLogin()">Masuk</button>
+    <div class="errmsg" id="loginErr"></div>
+    <p style="margin-top:16px;font-size:12px;">Belum ada akun admin? Buat lewat Firebase Console → Authentication → Add User.</p>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <h1 id="storeNameH">Admin Toko</h1>
+    <button class="logout" onclick="doLogout()">Keluar</button>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="orders" onclick="switchTab('orders')">Pesanan</div>
+    <div class="tab" data-tab="products" onclick="switchTab('products')">Produk</div>
+    <div class="tab" data-tab="banners" onclick="switchTab('banners')">Banner</div>
+    <div class="tab" data-tab="settings" onclick="switchTab('settings')">Pengaturan</div>
+  </div>
+
+  <div class="panel">
+
+    <div class="panel-section active" id="tab-orders">
+      <div class="toolbar"><h2>Pesanan</h2></div>
+      <table>
+        <thead><tr><th>Order</th><th>Pelanggan</th><th>Item</th><th>Total</th><th>Status</th><th></th></tr></thead>
+        <tbody id="ordersBody"><tr><td colspan="6" class="empty">Memuat...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="panel-section" id="tab-products">
+      <div class="toolbar"><h2>Produk</h2><button class="btn gold" onclick="openProductModal()">+ Tambah Produk</button></div>
+      <table>
+        <thead><tr><th></th><th>Nama</th><th>Kategori</th><th>Harga</th><th>Stok</th><th>Aktif</th><th></th></tr></thead>
+        <tbody id="productsBody"><tr><td colspan="7" class="empty">Memuat...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="panel-section" id="tab-banners">
+      <div class="toolbar">
+        <h2>Banner Depan</h2>
+        <button class="btn gold" onclick="openBannerModal()">+ Tambah Banner</button>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin-top:-8px;">Banner tampil bergantian di halaman depan toko (kalau lebih dari 1, otomatis berganti tiap 5 detik). Kalau tidak ada banner aktif, toko pakai tampilan default.</p>
+      <table>
+        <thead><tr><th></th><th>Judul</th><th>Urutan</th><th>Aktif</th><th></th></tr></thead>
+        <tbody id="bannersBody"><tr><td colspan="5" class="empty">Memuat...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="panel-section" id="tab-settings">
+      <div class="toolbar"><h2>Pengaturan Toko</h2></div>
+      <div style="max-width:400px;background:var(--paper);padding:20px;border-radius:12px;border:1px solid var(--line);">
+        <div class="field"><label>Nama Toko</label><input type="text" id="settingStoreName"></div>
+        <div class="field"><label>No. WhatsApp Admin</label><input type="text" id="settingWaNumber" placeholder="628xxxxxxxxxx"></div>
+        <button class="btn" onclick="saveSettings()">Simpan</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Product modal -->
+<div class="modal-overlay" id="productModalOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="productModalTitle">Tambah Produk</h3><button onclick="closeProductModal()" style="background:none;border:none;font-size:18px;">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="pId">
+      <div class="field"><label>Nama Produk</label><input type="text" id="pName"></div>
+      <div class="field"><label>Kategori</label><input type="text" id="pCategory" placeholder="Contoh: Sembako, Minuman"></div>
+      <div class="row2">
+        <div class="field"><label>Harga Jual (Rp)</label><input type="number" id="pPrice"></div>
+        <div class="field"><label>Harga Coret (opsional)</label><input type="number" id="pOriginalPrice"></div>
+      </div>
+      <div class="hint">Isi "Harga Coret" kalau produk ini lagi diskon — badge persen otomatis muncul.</div>
+      <div class="row2">
+        <div class="field"><label>Stok</label><input type="number" id="pStock"></div>
+        <div class="field"><label>Label (opsional)</label><input type="text" id="pBadge" placeholder="Baru / Best Seller"></div>
+      </div>
+      <div class="field"><label>URL Gambar</label><input type="text" id="pImage" placeholder="https://..."></div>
+      <div class="field"><label><input type="checkbox" id="pActive" checked style="width:auto;display:inline-block;"> Tampilkan di toko</label></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" onclick="closeProductModal()">Batal</button>
+      <button class="btn gold" onclick="saveProduct()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Banner modal -->
+<div class="modal-overlay" id="bannerModalOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="bannerModalTitle">Tambah Banner</h3><button onclick="closeBannerModal()" style="background:none;border:none;font-size:18px;">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="bId">
+      <div class="field"><label>URL Gambar Banner</label><input type="text" id="bImage" placeholder="https://... (disarankan ukuran lebar, min 1200px)"></div>
+      <div class="field"><label>Label Kecil (eyebrow)</label><input type="text" id="bEyebrow" placeholder="Contoh: Promo Spesial"></div>
+      <div class="field"><label>Judul Besar</label><input type="text" id="bTitle" placeholder="Contoh: Diskon 20% Semua Produk"></div>
+      <div class="field"><label>Sub-judul</label><input type="text" id="bSubtitle" placeholder="Kalimat pendukung singkat"></div>
+      <div class="row2">
+        <div class="field"><label>Teks Tombol</label><input type="text" id="bButtonText" placeholder="Belanja Sekarang"></div>
+        <div class="field"><label>Urutan Tampil</label><input type="number" id="bOrder" value="0"></div>
+      </div>
+      <div class="field"><label><input type="checkbox" id="bActive" checked style="width:auto;display:inline-block;"> Aktifkan banner ini</label></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" onclick="closeBannerModal()">Batal</button>
+      <button class="btn gold" onclick="saveBanner()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDXdRPXmbkZYg_O0Zjywot_KgKbphZDUW4",
+  authDomain: "admin-toko-markethub.firebaseapp.com",
+  projectId: "admin-toko-markethub",
+  storageBucket: "admin-toko-markethub.firebasestorage.app",
+  messagingSenderId: "559215474209",
+  appId: "1:559215474209:web:6049bcb46f5165ba3ad560"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let products = [];
+let banners = [];
+
+auth.onAuthStateChanged(user=>{
+  if(user){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadOrders(); loadProducts(); loadBanners(); loadSettings();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  }
+});
+
+function doLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  document.getElementById('loginErr').textContent = '';
+  auth.signInWithEmailAndPassword(email, pass).catch(e=>{
+    document.getElementById('loginErr').textContent = 'Login gagal: email/password salah.';
+  });
+}
+function doLogout(){ auth.signOut(); }
+
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+  document.querySelectorAll('.panel-section').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+function fmtRupiah(n){ return 'Rp ' + Number(n||0).toLocaleString('id-ID'); }
+
+// ---------- ORDERS ----------
+function loadOrders(){
+  db.collection('orders').orderBy('createdAt','desc').onSnapshot(snap=>{
+    const orders = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    const body = document.getElementById('ordersBody');
+    if(orders.length===0){ body.innerHTML = '<tr><td colspan="6" class="empty">Belum ada pesanan.</td></tr>'; return; }
+    body.innerHTML = orders.map(o=>`
+      <tr>
+        <td class="mono">${o.orderId}</td>
+        <td>${o.customerName}<br><span style="color:var(--muted);font-size:12px;">${o.phone}</span></td>
+        <td class="orderitems">${(o.items||[]).map(i=>`${i.qty}x ${i.name}`).join(', ')}</td>
+        <td class="mono">${fmtRupiah(o.total)}</td>
+        <td><span class="status-pill status-${o.status}">${o.status}</span></td>
+        <td>
+          <select onchange="updateOrderStatus('${o.id}', this.value)">
+            ${['pending','paid','shipped','completed','cancelled'].map(s=>`<option value="${s}" ${s===o.status?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </td>
+      </tr>
+    `).join('');
+  });
+}
+function updateOrderStatus(id, status){
+  db.collection('orders').doc(id).update({status});
+}
+
+// ---------- PRODUCTS ----------
+function loadProducts(){
+  db.collection('products').onSnapshot(snap=>{
+    products = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    const body = document.getElementById('productsBody');
+    if(products.length===0){ body.innerHTML = '<tr><td colspan="7" class="empty">Belum ada produk.</td></tr>'; return; }
+    body.innerHTML = products.map(p=>`
+      <tr>
+        <td><img class="rowimg" src="${p.image||'https://placehold.co/80/E7EEE2/1F3D2B?text=%20'}"></td>
+        <td>${p.name}${p.badge?` <span class="status-pill status-paid">${p.badge}</span>`:''}</td>
+        <td>${p.category||'-'}</td>
+        <td class="mono">${fmtRupiah(p.price)}${p.originalPrice?` <s style="color:var(--muted);font-size:11px;">${fmtRupiah(p.originalPrice)}</s>`:''}</td>
+        <td>${p.stock ?? 0}</td>
+        <td>${p.active ? '✅' : '—'}</td>
+        <td class="actions">
+          <button class="icon-btn" onclick='openProductModal(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Edit</button>
+          <button class="icon-btn" onclick="deleteProduct('${p.id}')">Hapus</button>
+        </td>
+      </tr>
+    `).join('');
+  });
+}
+
+function openProductModal(p){
+  document.getElementById('productModalTitle').textContent = p ? 'Edit Produk' : 'Tambah Produk';
+  document.getElementById('pId').value = p ? p.id : '';
+  document.getElementById('pName').value = p ? p.name : '';
+  document.getElementById('pCategory').value = p ? (p.category||'') : '';
+  document.getElementById('pPrice').value = p ? p.price : '';
+  document.getElementById('pOriginalPrice').value = p ? (p.originalPrice||'') : '';
+  document.getElementById('pStock').value = p ? p.stock : '';
+  document.getElementById('pBadge').value = p ? (p.badge||'') : '';
+  document.getElementById('pImage').value = p ? (p.image||'') : '';
+  document.getElementById('pActive').checked = p ? !!p.active : true;
+  document.getElementById('productModalOverlay').classList.add('show');
+}
+function closeProductModal(){ document.getElementById('productModalOverlay').classList.remove('show'); }
+
+async function saveProduct(){
+  const id = document.getElementById('pId').value;
+  const data = {
+    name: document.getElementById('pName').value.trim(),
+    category: document.getElementById('pCategory').value.trim(),
+    price: Number(document.getElementById('pPrice').value)||0,
+    originalPrice: Number(document.getElementById('pOriginalPrice').value)||0,
+    stock: Number(document.getElementById('pStock').value)||0,
+    badge: document.getElementById('pBadge').value.trim(),
+    image: document.getElementById('pImage').value.trim(),
+    active: document.getElementById('pActive').checked
+  };
+  if(!data.name){ alert('Nama produk wajib diisi'); return; }
+  if(id){ await db.collection('products').doc(id).update(data); }
+  else{ await db.collection('products').add(data); }
+  closeProductModal();
+}
+function deleteProduct(id){
+  if(confirm('Hapus produk ini?')) db.collection('products').doc(id).delete();
+}
+
+// ---------- BANNERS ----------
+function loadBanners(){
+  db.collection('banners').orderBy('order','asc').onSnapshot(snap=>{
+    banners = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    const body = document.getElementById('bannersBody');
+    if(banners.length===0){ body.innerHTML = '<tr><td colspan="5" class="empty">Belum ada banner custom — toko pakai tampilan default.</td></tr>'; return; }
+    body.innerHTML = banners.map(b=>`
+      <tr>
+        <td><img class="bannerimg" src="${b.image||''}"></td>
+        <td>${b.title||'-'}</td>
+        <td>${b.order ?? 0}</td>
+        <td>${b.active ? '✅' : '—'}</td>
+        <td class="actions">
+          <button class="icon-btn" onclick='openBannerModal(${JSON.stringify(b).replace(/'/g,"&#39;")})'>Edit</button>
+          <button class="icon-btn" onclick="deleteBanner('${b.id}')">Hapus</button>
+        </td>
+      </tr>
+    `).join('');
+  }, err=>{
+    document.getElementById('bannersBody').innerHTML = '<tr><td colspan="5" class="empty">Belum ada banner custom — toko pakai tampilan default.</td></tr>';
+  });
+}
+function openBannerModal(b){
+  document.getElementById('bannerModalTitle').textContent = b ? 'Edit Banner' : 'Tambah Banner';
+  document.getElementById('bId').value = b ? b.id : '';
+  document.getElementById('bImage').value = b ? (b.image||'') : '';
+  document.getElementById('bEyebrow').value = b ? (b.eyebrow||'') : '';
+  document.getElementById('bTitle').value = b ? (b.title||'') : '';
+  document.getElementById('bSubtitle').value = b ? (b.subtitle||'') : '';
+  document.getElementById('bButtonText').value = b ? (b.buttonText||'Belanja Sekarang') : 'Belanja Sekarang';
+  document.getElementById('bOrder').value = b ? (b.order||0) : (banners.length);
+  document.getElementById('bActive').checked = b ? !!b.active : true;
+  document.getElementById('bannerModalOverlay').classList.add('show');
+}
+function closeBannerModal(){ document.getElementById('bannerModalOverlay').classList.remove('show'); }
+
+async function saveBanner(){
+  const id = document.getElementById('bId').value;
+  const data = {
+    image: document.getElementById('bImage').value.trim(),
+    eyebrow: document.getElementById('bEyebrow').value.trim(),
+    title: document.getElementById('bTitle').value.trim(),
+    subtitle: document.getElementById('bSubtitle').value.trim(),
+    buttonText: document.getElementById('bButtonText').value.trim(),
+    buttonLink: '#productGrid',
+    order: Number(document.getElementById('bOrder').value)||0,
+    active: document.getElementById('bActive').checked
+  };
+  if(!data.image || !data.title){ alert('URL gambar dan judul wajib diisi'); return; }
+  if(id){ await db.collection('banners').doc(id).update(data); }
+  else{ await db.collection('banners').add(data); }
+  closeBannerModal();
+}
+function deleteBanner(id){
+  if(confirm('Hapus banner ini?')) db.collection('banners').doc(id).delete();
+}
+
+// ---------- SETTINGS ----------
+function loadSettings(){
+  db.collection('settings').doc('store').get().then(doc=>{
+    if(doc.exists){
+      document.getElementById('settingStoreName').value = doc.data().name || '';
+      document.getElementById('settingWaNumber').value = doc.data().waNumber || '';
+      if(doc.data().name) document.getElementById('storeNameH').textContent = doc.data().name + ' — Admin';
+    }
+  });
+}
+function saveSettings(){
+  db.collection('settings').doc('store').set({
+    name: document.getElementById('settingStoreName').value.trim(),
+    waNumber: document.getElementById('settingWaNumber').value.trim()
+  }, {merge:true}).then(()=>alert('Pengaturan disimpan'));
+}
+</script>
+</body>
+</html>
